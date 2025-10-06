@@ -20,85 +20,103 @@ SELECT id, name, email FROM users ORDER BY id;  -- see users
 SELECT id, user_id, title, status FROM tasks ORDER BY id; -- see tasks
 ```
 
-## Perfect SQL Operations (safe demo)
+## SQL Operations for Testing
 
-These queries use real rows from the file and show result checks. Use transactions so your sample data stays same. If you want to keep changes, COMMIT instead of ROLLBACK.
+Here are the SQL queries to test the database. They are designed to be safe to run, so your mentor can test them multiple times without changing the original data.
 
-1) Select all tasks
+### 1. Select all tasks
+Shows every task in the `tasks` table.
 ```sql
 SELECT * FROM tasks ORDER BY id;
 ```
 
-2) Update a task’s status (safe demo)
+### 2. Update a task’s status
+This example updates a task's status to 'completed' and then rolls back the change, so the original data is not modified.
 ```sql
+-- Check status before update
+SELECT id, title, status FROM tasks WHERE id = 2; -- status is 'in_progress'
+
 START TRANSACTION;
-UPDATE tasks SET status = 'completed' WHERE id = 2;       -- id 2 exists
-SELECT id, title, status FROM tasks WHERE id = 2;          -- verify
-ROLLBACK;  -- or COMMIT if you want to save
+UPDATE tasks SET status = 'completed' WHERE id = 2;
+-- Check status after update
+SELECT id, title, status FROM tasks WHERE id = 2; -- status is now 'completed'
+ROLLBACK;
+
+-- Check status after rollback to see it's back to original
+SELECT id, title, status FROM tasks WHERE id = 2; -- status is 'in_progress' again
 ```
 
-3) Delete a task (safe demo with temporary row)
+### 3. Delete a task
+This example deletes a task and then rolls back the change.
 ```sql
+-- Verify task with id=8 exists
+SELECT id, title FROM tasks WHERE id = 8;
+
 START TRANSACTION;
-INSERT INTO tasks (user_id, title, description, status)
-VALUES (1, 'TEMP Demo Task', 'for delete demo', 'pending');
-SELECT LAST_INSERT_ID() AS new_task_id;                    -- note the id
--- suppose new_task_id = X
-DELETE FROM tasks WHERE id = LAST_INSERT_ID();             -- delete that row
-SELECT * FROM tasks WHERE id = LAST_INSERT_ID();           -- should return 0 rows
-ROLLBACK;  -- or COMMIT if you want to save
+DELETE FROM tasks WHERE id = 8;
+-- Verify task with id=8 is gone
+SELECT * FROM tasks WHERE id = 8; -- returns empty set
+ROLLBACK;
+
+-- Verify task with id=8 is back
+SELECT id, title FROM tasks WHERE id = 8;
 ```
 
-4) Sorting and Pagination
+### 4. Show tasks with Sorting and Limit/Pagination
+This shows how to get pages of data, for example, 5 tasks per page.
 ```sql
--- newest first by created_at
-SELECT id, user_id, title, status, created_at
-FROM tasks
-ORDER BY created_at DESC
-LIMIT 5 OFFSET 0;   -- page 1
+-- Page 1: Get the first 5 tasks, ordered by creation date
+SELECT id, title, created_at FROM tasks ORDER BY created_at DESC LIMIT 5 OFFSET 0;
 
-SELECT id, user_id, title, status, created_at
-FROM tasks
-ORDER BY created_at DESC
-LIMIT 5 OFFSET 5;   -- page 2
-
--- deterministic by id (alternative)
-SELECT id, user_id, title, status FROM tasks ORDER BY id DESC LIMIT 3;
+-- Page 2: Get the next 5 tasks
+SELECT id, title, created_at FROM tasks ORDER BY created_at DESC LIMIT 5 OFFSET 5;
 ```
 
-5) Aggregates (how many tasks each user has)
-```sql
-SELECT u.id, u.name, COUNT(t.id) AS task_count
-FROM users u
-LEFT JOIN tasks t ON t.user_id = u.id
-GROUP BY u.id, u.name
-ORDER BY task_count DESC, u.id;
+### 5. Use Aggregator Functions
+These queries show how to use functions like `COUNT()` and `MAX()`.
 
--- extra: status-wise count per user
-SELECT u.id, u.name, t.status, COUNT(*) AS cnt
+**Count how many tasks each user has:**
+```sql
+SELECT
+    u.name,
+    COUNT(t.id) AS number_of_tasks
 FROM users u
-LEFT JOIN tasks t ON t.user_id = u.id
-GROUP BY u.id, u.name, t.status
-ORDER BY u.id, t.status;
+LEFT JOIN tasks t ON u.id = t.user_id
+GROUP BY u.id
+ORDER BY number_of_tasks DESC;
 ```
 
-6) Joins
+**Find the most recently created task for each user:**
 ```sql
--- Inner Join: only users who have tasks
-SELECT u.id AS user_id, u.name, t.id AS task_id, t.title, t.status
+SELECT
+    u.name,
+    MAX(t.created_at) AS last_task_date
 FROM users u
-INNER JOIN tasks t ON t.user_id = u.id
-ORDER BY u.id, t.id;
+JOIN tasks t ON u.id = t.user_id
+GROUP BY u.id
+ORDER BY last_task_date DESC;
+```
 
--- Left Join: all users (user 4 has 0 task but still shows)
-SELECT u.id AS user_id, u.name, t.id AS task_id, t.title, t.status
-FROM users u
-LEFT JOIN tasks t ON t.user_id = u.id
-ORDER BY u.id, t.id;
+### 6. Perform Joins
+These queries show how to combine data from `users` and `tasks` tables.
 
--- Right Join: all tasks (same rows as inner join because FK ensures user exists)
-SELECT u.id AS user_id, u.name, t.id AS task_id, t.title, t.status
+**INNER JOIN:** Shows only users who have tasks.
+```sql
+SELECT u.name, t.title, t.status
 FROM users u
-RIGHT JOIN tasks t ON t.user_id = u.id
-ORDER BY u.id, t.id;
+INNER JOIN tasks t ON u.id = t.user_id;
+```
+
+**LEFT JOIN:** Shows all users, and their tasks if they have any. User 'Mahmudullah Riyad' will appear with NULL task details because he has no tasks.
+```sql
+SELECT u.name, t.title, t.status
+FROM users u
+LEFT JOIN tasks t ON u.id = t.user_id;
+```
+
+**RIGHT JOIN:** Shows all tasks, and the user they belong to. In this data, every task has a user, so the result is the same as INNER JOIN.
+```sql
+SELECT u.name, t.title, t.status
+FROM users u
+RIGHT JOIN tasks t ON u.id = t.user_id;
 ```
