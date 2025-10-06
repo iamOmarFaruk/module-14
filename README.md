@@ -102,13 +102,3 @@ FROM users u
 RIGHT JOIN tasks t ON t.user_id = u.id
 ORDER BY u.id, t.id;
 ```
-
-## Short Notes (Bangladeshi tone)
-- Easy bhai. Import SQL, then run queries.
-- `users` is main, `tasks` connects by `user_id`.
-- For demo without breaking data, use `START TRANSACTION` and `ROLLBACK`.
-- For page-wise list, use `LIMIT` + `OFFSET`.
-- To count tasks, `COUNT()` with `GROUP BY`.
-- Inner = matched, Left = all users, Right = all tasks.
-
-All done. Import `.sql`, copy-paste queries, see real output.
